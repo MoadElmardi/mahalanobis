@@ -9,6 +9,7 @@ fn mahalanobis_distance(x: &DVector<f64>, d: &DMatrix<f64>) -> f64 {
     let diff = x - mu;
 
     let covariance_inv = covariance_matrix(d).try_inverse().expect("La matrice de covariance doit être inversible");
+    println!("Matrice de covariance inverse :\n{}", covariance_inv);
 
     // Calculer le produit (diff ^ T) * covariance_inv
     let product = covariance_inv * diff.clone();
@@ -43,13 +44,13 @@ fn covariance_matrix(d: &DMatrix<f64>) -> DMatrix<f64> {
 
 pub fn main() {
     // Exemple de données
-    let x = dvector![66.0, 640.0, 44.0];
+    let x = dvector![660.0, 6400.0, 440.0];
 
-    let d = DMatrix::from_row_slice(5,3, &[64.0, 580.0, 29.0, 
-                                                                                        66.0, 570.0, 33.0,
-                                                                                        68.0, 590.0, 37.0,
-                                                                                        69.0, 660.0, 46.0,
-                                                                                        73.0, 600.0, 55.0]);
+    let d = DMatrix::from_row_slice(5,3, &[640.0, 5800.0, 290.0, 
+                                                                                        660.0, 5700.0, 330.0,
+                                                                                        680.0, 5900.0, 370.0,
+                                                                                        690.0, 6600.0, 460.0,
+                                                                                        730.0, 6000.0, 550.0]);
 
 
     let covariance = covariance_matrix(&d);

@@ -218,7 +218,8 @@ pub fn main() {
     set_server_key(server_key);
     let public_key = PublicKey::new(&client_key);
 
-    let _x: [i32; 3] = [66, 640, 44];
+    // let x: [i32; 3] = [66, 640, 44];
+    // let x: [i32; 3] = [4, 500, 40];
     // let d:Vec<i32> = vec![
     //     64, 580, 29,
     //     66, 570, 33,
@@ -227,14 +228,31 @@ pub fn main() {
     //     73, 600, 55,
     // ];
     // let d:Vec<i32> = vec![
+    //     1, 100, 10,
+    //     2, 300, 15,
+    //     4, 200, 20,
+    //     2, 600, 10,
+    //     5, 100, 30,
+    // ];
+    // let d:Vec<i32> = vec![
     //     1, 2, 0,
     //     0, 1, 0,
     //     0, 0, 1,
     // ];
+    // let d:Vec<i32> = vec![
+    //     11, 50, 34,
+    //     50, 1250, 205,
+    //     34, 205, 110,
+    // ];
+    // let d:Vec<i32> = vec![
+    //     1, 5, 3,
+    //     5, 125, 20,
+    //     3, 20, 11,
+    // ];
     let d:Vec<i32> = vec![
-        11, 50, 34,
-        50, 1250, 205,
-        34, 205, 110,
+        4, 3, 8,
+        6, 2, 5,
+        1, 5, 9,
     ];
 
     let d_encrypted = CpuFheInt32Array::try_encrypt(d.as_slice(), &client_key).unwrap();
