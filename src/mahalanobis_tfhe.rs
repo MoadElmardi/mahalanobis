@@ -219,7 +219,7 @@ pub fn main() {
     let public_key = PublicKey::new(&client_key);
 
     // let x: [i32; 3] = [66, 640, 44];
-    // let x: [i32; 3] = [4, 500, 40];
+    let x: [i32; 3] = [4, 500, 40];
     // let d:Vec<i32> = vec![
     //     64, 580, 29,
     //     66, 570, 33,
@@ -257,15 +257,15 @@ pub fn main() {
 
     let d_encrypted = CpuFheInt32Array::try_encrypt(d.as_slice(), &client_key).unwrap();
 
-    let covariance_inv = gauss_jordan_inverse(d_encrypted.clone(), public_key.clone(), client_key.clone());
-    let covariance_inv_decrypted: Vec<i32> = covariance_inv.decrypt(&client_key);
-    println!("Matrice de covariance inverse: {:?}", covariance_inv_decrypted);
+    // let covariance_inv = gauss_jordan_inverse(d_encrypted.clone(), public_key.clone(), client_key.clone());
+    // let covariance_inv_decrypted: Vec<i32> = covariance_inv.decrypt(&client_key);
+    // println!("Matrice de covariance inverse: {:?}", covariance_inv_decrypted);
 
-    // let x_encrypted = CpuFheInt32Array::try_encrypt(&x, &client_key).unwrap();
+    let x_encrypted = CpuFheInt32Array::try_encrypt(&x, &client_key).unwrap();
 
-    // let dist = mahalanobis_distance(d_encrypted, x_encrypted, public_key.clone(), client_key.clone());
-    // let dist_decrypted: Vec<i32> = dist.decrypt(&client_key);
-    // println!("Mahalanobis distance: {:?}", dist_decrypted);
+    let dist = mahalanobis_distance(d_encrypted, x_encrypted, public_key.clone(), client_key.clone());
+    let dist_decrypted: Vec<i32> = dist.decrypt(&client_key);
+    println!("Mahalanobis distance: {:?}", dist_decrypted);
 
 
     // let inverse = gauss_jordan_inverse(d_encrypted.clone(), public_key.clone());
