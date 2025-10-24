@@ -5,8 +5,10 @@ use tfhe::integer::ciphertext::BaseSignedRadixCiphertext;
 use tfhe::shortint::Ciphertext;
 
 fn mean_vector(d: CpuFheInt32Array, n_cols: usize, public_key: PublicKey) -> CpuFheInt32Array {
+    // Nombre de lignes (d.shape()[0] renvoit le nombre d'éléments de d)
     let n_rows = d.shape()[0] / n_cols;
     
+    // Calcul des sommes des éléments des colonnes
     let mut sum_array: CpuFheInt32Array = d.slice(&[0..n_cols]).into_owned();
 
     for i in 1..n_rows {
@@ -14,6 +16,7 @@ fn mean_vector(d: CpuFheInt32Array, n_cols: usize, public_key: PublicKey) -> Cpu
         sum_array = &sum_array + &slice;
     }
 
+    // Création d'un tableau contenant des éléments égaux au nombre de lignes et de taille égale au nombre de colonnes
     let n_array = vec![n_rows as i32; n_cols];
     let n_encrypted_vec: Vec<FheInt32> = n_array.iter().map(|&x| FheInt32::encrypt(x, &public_key)).collect();
     let shape = vec![n_cols];
@@ -22,15 +25,20 @@ fn mean_vector(d: CpuFheInt32Array, n_cols: usize, public_key: PublicKey) -> Cpu
     .map(|x| x.into_raw_parts().0)
     .collect();
     let n_array_encrypted = CpuFheInt32Array::new(ct_vec, shape);
+    
+    // Calcul du vecteur moyen
     let mean_array = &sum_array / &n_array_encrypted;
     return mean_array;
 }
 
 fn covariance_matrix(d: CpuFheInt32Array, n_cols: usize, public_key: PublicKey) -> CpuFheInt32Array {
+    // Nombre de lignes
     let n_rows = d.shape()[0] / n_cols;
 
+    // Vecteur moyen
     let mean = mean_vector(d.clone(), n_cols, public_key.clone());
 
+    // Création d'une matrice chiffrée remplie par des 0
     let covariance_clair = vec![0i32; n_cols * n_cols];
     let covariance_chiffree: Vec<FheInt32> = covariance_clair.iter().map(|&x| FheInt32::encrypt(x, &public_key)).collect();
     let shape = vec![n_cols * n_cols];
@@ -41,14 +49,17 @@ fn covariance_matrix(d: CpuFheInt32Array, n_cols: usize, public_key: PublicKey) 
     let mut covariance = CpuFheInt32Array::new(ct_vec, shape);
 
     for i in 0..n_rows {
+        // Trancher la ligne i
         let row_slice = d.slice(&[i*n_cols..(i+1)*n_cols]);
+        // Calculer la différence entre la ligne i et le vecteur moyen
         let diff = &row_slice - &mean;
 
+        // Calculer le produit extérieur entre diff et la transposée de diff
         for j in 0..n_cols {
             for k in 0..n_cols {
                 let outer_product = diff.slice(&[j..j+1]) * diff.slice(&[k..k+1]);
                 
-                // Créer un tableau de shape [n_cols, n_cols] rempli de zéros
+                // Créer une matrice de taille[n_cols, n_cols] remplie de zéros
                 let mut update_vec = vec![FheInt32::encrypt(0i32, &public_key); n_cols * n_cols];
 
                 // Placer le outer_product à la position (j, k)
@@ -64,11 +75,13 @@ fn covariance_matrix(d: CpuFheInt32Array, n_cols: usize, public_key: PublicKey) 
 
                 let update_array = CpuFheInt32Array::new(ct_vec, vec![n_cols * n_cols]);
 
+                // Ajouter la nouvelle matrice à la matrice de covariance
                 covariance = covariance + update_array;
             }
-        }
-        
+        } 
     }
+    
+    // Créer une matrice remplie de la valeur (n-1)
     let n_1 = n_rows - 1;
     let n_1_array = vec![n_1 as i32; n_cols * n_cols];
     let n_1_encrypted_vec: Vec<FheInt32> = n_1_array.iter().map(|&x| FheInt32::encrypt(x, &public_key)).collect();
@@ -78,11 +91,13 @@ fn covariance_matrix(d: CpuFheInt32Array, n_cols: usize, public_key: PublicKey) 
         .map(|x| x.into_raw_parts().0)
         .collect();
     let n_1_array_encrpyted = CpuFheInt32Array::new(n_1_ct_vec, n_1_shape);
+    
+    // Diviser la matrice de covariance par la matrice des (n-1) et obtenir le résultat correct
     let covariance = &covariance / &n_1_array_encrpyted; 
     return covariance;
 }
 
-fn gauss_jordan_inverse(mut matrix: CpuFheInt32Array, public_key: PublicKey, client_key: ClientKey) -> CpuFheInt32Array {
+fn gauss_jordan_inverse(mut matrix: CpuFheInt32Array, public_key: PublicKey) -> CpuFheInt32Array {
     // This function implements the Gauss-Jordan elimination method to find the inverse of the matrix
 
     let n = matrix.shape()[0].isqrt();
@@ -122,11 +137,6 @@ fn gauss_jordan_inverse(mut matrix: CpuFheInt32Array, public_key: PublicKey, cli
         matrix = matrix / &pivot_matrix_chiffree;
         identity_matrix = identity_matrix / &pivot_matrix_chiffree;
 
-        let matrix_decrypted: Vec<i32> = matrix.decrypt(&client_key);
-        println!("Matrice après division par le pivot (itération {}): {:?}", i, matrix_decrypted);
-        let identity_decrypted: Vec<i32> = identity_matrix.decrypt(&client_key);
-        println!("Matrice identité après division par le pivot (itération {}): {:?}\n", i, identity_decrypted);
-
         // Cancel out the coloumns
         let mut cancel_matrix = vec![zero.clone().into_raw_parts().0; n * n];
         let mut cancel_idendidty = vec![zero.clone().into_raw_parts().0; n * n];
@@ -146,11 +156,6 @@ fn gauss_jordan_inverse(mut matrix: CpuFheInt32Array, public_key: PublicKey, cli
 
         matrix = matrix - &cancel_matrix_chiffree;
         identity_matrix = identity_matrix - &cancel_identity_chiffree;
-
-        let matrix_decrypted2: Vec<i32> = matrix.decrypt(&client_key);
-        println!("Matrice après annulation des colonnes (itération {}): {:?}", i, matrix_decrypted2);
-        let identity_decrypted2: Vec<i32> = identity_matrix.decrypt(&client_key);
-        println!("Matrice identité après annulation des colonnes (itération {}): {:?}\n", i, identity_decrypted2);
 
     }
 
@@ -175,7 +180,7 @@ fn mahalanobis_distance(d: CpuFheInt32Array, x: CpuFheInt32Array, public_key: Pu
     let covariance_decrypted: Vec<i32> = covariance.decrypt(&client_key);
     println!("Matrice de covariance: {:?}\n", covariance_decrypted);
 
-    let covariance_inv = gauss_jordan_inverse(covariance, public_key.clone(), client_key.clone());
+    let covariance_inv = gauss_jordan_inverse(covariance, public_key.clone());
     let covariance_inv_decrypted: Vec<i32> = covariance_inv.decrypt(&client_key);
     println!("Matrice de covariance inverse: {:?}\n", covariance_inv_decrypted);
 
@@ -257,9 +262,9 @@ pub fn main() {
 
     let d_encrypted = CpuFheInt32Array::try_encrypt(d.as_slice(), &client_key).unwrap();
 
-    // let covariance_inv = gauss_jordan_inverse(d_encrypted.clone(), public_key.clone(), client_key.clone());
-    // let covariance_inv_decrypted: Vec<i32> = covariance_inv.decrypt(&client_key);
-    // println!("Matrice de covariance inverse: {:?}", covariance_inv_decrypted);
+    let covariance_inv = gauss_jordan_inverse(d_encrypted.clone(), public_key.clone(), client_key.clone());
+    let covariance_inv_decrypted: Vec<i32> = covariance_inv.decrypt(&client_key);
+    println!("Matrice de covariance inverse: {:?}", covariance_inv_decrypted);
 
     let x_encrypted = CpuFheInt32Array::try_encrypt(&x, &client_key).unwrap();
 
